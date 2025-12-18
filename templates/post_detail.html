@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}帖子详情 - 匿名树洞{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- 返回按钮 -->
+        <div class="mb-3">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 返回
+            </a>
+            {% if is_owner %}
+            <button class="btn btn-outline-danger float-end delete-post-btn" data-post-id="{{ post.id }}">
+                <i class="fas fa-trash"></i> 删除帖子
+            </button>
+            {% endif %}
+        </div>
+        
+        <!-- 帖子内容 -->
+        <div class="card shadow mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center
+                {% if is_owner %}bg-warning text-dark{% else %}bg-primary text-white{% endif %}">
+                <div>
+                    <h4 class="mb-0">
+                        {% if is_owner %}
+                            <i class="fas fa-user-circle"></i> 我的帖子
+                        {% else %}
+                            <i class="fas fa-user-secret"></i> 匿名帖子
+                        {% endif %}
+                    </h4>
+                </div>
+                <div class="text-end">
+                    <small>{{ post.created_at.strftime('%Y年%m月%d日 %H:%M') }}</small>
+                    {% if is_owner %}
+                        <br><small class="fst-italic">(这是你发布的)</small>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="post-content mb-4">
+                    {{ post.content|replace('\n', '<br>')|safe }}
+                </div>
+                
+                <!-- 图片显示 -->
+                {% if post.image_filename %}
+                <div class="text-center mb-4">
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <i class="fas fa-image"></i> 附带的图片
+                        </div>
+                        <div class="card-body p-2">
+                            <img src="{{ url_for('static', filename='uploads/' + post.image_filename) }}" 
+                                 class="img-fluid rounded" 
+                                 alt="帖子图片"
+                                 style="max-height: 500px;">
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="text-muted small">
+                    <i class="fas fa-comments"></i> {{ post.replies|length }} 条回复
+                    {% if is_admin %}
+                        | <i class="fas fa-user-secret"></i> 发布者IP: {{ post.user_ip }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 回复表单 -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-reply"></i> 添加回复</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_reply', post_id=post.id) }}">
+                    <div class="mb-3">
+                        <label for="replyContent" class="form-label">回复内容</label>
+                        <textarea class="form-control" id="replyContent" name="content" 
+                                  rows="3" placeholder="写下你的回复..." required maxlength="500"></textarea>
+                        <div class="form-text text-end"><span id="replyCharCount">0</span>/500</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-paper-plane"></i> 匿名回复
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 回复列表 -->
+        <div class="card shadow">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-comments"></i> 所有回复
+                    <span class="badge bg-light text-dark ms-2">{{ post.replies|length }}</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if post.replies %}
+                    <div class="list-group">
+                        {% for reply in post.replies|sort(attribute='created_at', reverse=False) %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between mb-2">
+                                    <div>
+                                        <span class="badge 
+                                            {% if reply.user_ip == post.user_ip %}bg-warning text-dark
+                                            {% elif reply.user_ip == user_ip %}bg-info text-dark
+                                            {% else %}bg-secondary{% endif %}">
+                                            {% if reply.user_ip == post.user_ip %}
+                                                <i class="fas fa-user-edit"></i> 楼主
+                                            {% elif reply.user_ip == user_ip %}
+                                                <i class="fas fa-user"></i> 我
+                                            {% else %}
+                                                <i class="fas fa-user-secret"></i> 匿名
+                                            {% endif %}
+                                        </span>
+                                        {% if is_admin %}
+                                            <small class="text-muted ms-2">IP: {{ reply.user_ip }}</small>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted">{{ reply.created_at.strftime('%m-%d %H:%M') }}</small>
+                                </div>
+                                <p class="mb-1">{{ reply.content|replace('\n', '<br>')|safe }}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">还没有回复，快来第一个回复吧！</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // 字符计数
+        $('#replyContent').on('input', function() {
+            $('#replyCharCount').text($(this).val().length);
+        });
+        
+        // 删除帖子功能
+        $('.delete-post-btn').click(function() {
+            const postId = $(this).data('post-id');
+            if (confirm('确定要删除这个帖子吗？删除后所有回复也会被删除且不可恢复。')) {
+                $.ajax({
+                    url: '/delete_my_post/' + postId,
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            window.location.href = "{{ url_for('index') }}";
+                        } else {
+                            alert('删除失败: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('删除失败，请重试');
+                    }
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

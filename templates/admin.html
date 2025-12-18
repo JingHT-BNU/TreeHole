@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}匿名树洞 - 管理后台{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-cogs"></i> 管理后台</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+        <i class="fas fa-user"></i> 切换到用户界面
+    </a>
+</div>
+
+<div class="alert alert-warning">
+    <i class="fas fa-shield-alt"></i>
+    <strong>管理员模式：</strong> 你可以查看和管理所有用户的帖子
+</div>
+
+<div class="card shadow">
+    <div class="card-header bg-danger text-white">
+        <h4 class="mb-0"><i class="fas fa-list"></i> 所有帖子</h4>
+    </div>
+    <div class="card-body">
+        {% if posts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>内容</th>
+                            <th>发布者IP</th>
+                            <th>可见性</th>
+                            <th>发布时间</th>
+                            <th>图片</th>
+                            <th>回复数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for post in posts %}
+                            <tr>
+                                <td>{{ post.id }}</td>
+                                <td class="text-truncate" style="max-width: 300px;">
+                                    <a href="{{ url_for('view_post', post_id=post.id) }}">
+                                        {{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ post.user_ip }}</span>
+                                </td>
+                                <td>
+                                    {% if post.visibility == 'public' %}
+                                        <span class="badge bg-primary">公共</span>
+                                    {% elif post.visibility == 'admin_only' %}
+                                        <span class="badge bg-warning">仅心理委员</span>
+                                    {% elif post.visibility == 'private' %}
+                                        <span class="badge bg-danger">仅自己</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ post.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>
+                                    {% if post.image_filename %}
+                                        <i class="fas fa-image text-success"></i>
+                                    {% else %}
+                                        <span class="text-muted">无</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ post.replies|length }}</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <button class="btn btn-outline-danger delete-admin-post-btn" data-post-id="{{ post.id }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h5 class="text-muted">还没有任何帖子</h5>
+                <p class="text-muted">用户发布的内容将显示在这里</p>
+            </div>
+        {% endif %}
+    </div>
+    <div class="card-footer text-muted">
+        共 {{ posts|length }} 个帖子
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- 统计信息部分 -->
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> 统计信息</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>帖子总数</span>
+                        <span class="badge bg-primary">{{ stats.total }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>仅自己可见帖子</span>
+                        <span class="badge bg-secondary">{{ stats.private }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>仅管理员可见帖子</span>
+                        <span class="badge bg-warning">{{ stats.admin_only }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>公共可见帖子</span>
+                        <span class="badge bg-success">{{ stats.public }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>带图片的帖子</span>
+                        <span class="badge bg-success">{{ stats.with_images }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>有回复的帖子</span>
+                        <span class="badge bg-warning">{{ stats.with_replies }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>今日新帖</span>
+                        <span class="badge bg-danger">{{ stats.today }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-user-shield"></i> 管理员功能</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    你正在使用管理员IP访问：<strong>{{ user_ip }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // 管理员删除帖子
+        $('.delete-admin-post-btn').click(function() {
+            const postId = $(this).data('post-id');
+            if (confirm('确定要删除这个帖子吗？此操作将删除所有回复且不可恢复。')) {
+                $.ajax({
+                    url: '/admin/delete/' + postId,
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            location.reload();
+                        } else {
+                            alert('删除失败: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('删除失败，请重试');
+                    }
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

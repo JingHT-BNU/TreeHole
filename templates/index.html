@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}匿名树洞 - 主页{% endblock %}
+
+{% block content %}
+<div class="row">
+    {% if is_admin_ip(user_ip) %}
+        <div class="col-12 mb-3">
+            <div class="alert alert-warning d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-user-shield"></i>
+                    <strong>管理员模式</strong> - 您正在以管理员身份查看用户界面
+                </div>
+                <div>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger">
+                        <i class="fas fa-cogs"></i> 进入管理后台
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    <!-- 左侧：发帖区域 -->
+    <div class="col-lg-8 mb-4">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-edit"></i> 发布新内容</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_post') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="content" class="form-label">想说点什么？</label>
+                        <textarea class="form-control" id="content" name="content" rows="5"
+                                  placeholder="在这里写下你想说的话..." required maxlength="1000"></textarea>
+                        <div class="form-text text-end"><span id="charCount">0</span>/1000</div>
+                    </div>
+
+                    <!-- 新增：可见性选择 -->
+                    <div class="mb-3">
+                        <label class="form-label">可见性设置</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="visibility" id="visibilityPublic" value="public" checked>
+                            <label class="form-check-label" for="visibilityPublic">
+                                <i class="fas fa-globe text-primary"></i> 公共树洞 (所有人可见)
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="visibility" id="visibilityAdmin" value="admin_only">
+                            <label class="form-check-label" for="visibilityAdmin">
+                                <i class="fas fa-user-shield text-warning"></i> 仅心理委员可见
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="visibility" id="visibilityPrivate" value="private">
+                            <label class="form-check-label" for="visibilityPrivate">
+                                <i class="fas fa-lock text-danger"></i> 仅自己可见
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="image" class="form-label">添加图片（可选）</label>
+                        <input class="form-control" type="file" id="image" name="image" accept=".jpg,.jpeg,.png,.gif">
+                        <div class="form-text">支持 JPG, PNG, GIF 格式，最大 5MB</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> 发布
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 公共树洞区域 -->
+        <div class="card shadow mt-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="fas fa-globe"></i> 公共树洞</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">来自其他人的匿名分享（不包含你的帖子）</p>
+
+                {% if public_posts %}
+                    <div class="list-group">
+                        {% for post in public_posts %}
+                            <a href="{{ url_for('view_post', post_id=post.id) }}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1 text-truncate">{{ post.content[:100] }}{% if post.content|length > 100 %}...{% endif %}</h6>
+                                    <small>{{ post.created_at.strftime('%m-%d %H:%M') }}</small>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-comment"></i> {{ post.replies|length }} 条回复
+                                    </small>
+                                    {% if post.image_filename %}
+                                        <small><i class="fas fa-image text-info"></i></small>
+                                    {% endif %}
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-comments fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">还没有公共帖子，快来发布第一个吧！</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：我的帖子区域 -->
+    <div class="col-lg-4">
+        <div class="card shadow">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0"><i class="fas fa-user-circle"></i> 我的帖子</h4>
+            </div>
+            <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                <p class="text-muted small">这里只显示你的帖子，其他人看不到这个列表</p>
+
+                {% if user_posts %}
+                    <div class="list-group">
+                        {% for post in user_posts %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1 text-truncate">{{ post.content[:80] }}{% if post.content|length > 80 %}...{% endif %}</h6>
+                                    <div class="d-flex align-items-start">
+                                        <small>{{ post.created_at.strftime('%m-%d %H:%M') }}</small>
+                                        <!-- 可见性标识 -->
+                                        {% if post.visibility == 'public' %}
+                                            <span class="badge bg-primary ms-2" title="公共可见"><i class="fas fa-globe"></i></span>
+                                        {% elif post.visibility == 'admin_only' %}
+                                            <span class="badge bg-warning ms-2" title="仅心理委员可见"><i class="fas fa-user-shield"></i></span>
+                                        {% elif post.visibility == 'private' %}
+                                            <span class="badge bg-danger ms-2" title="仅自己可见"><i class="fas fa-lock"></i></span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <a href="{{ url_for('view_post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-eye"></i> 查看/回复
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger delete-post-btn" data-post-id="{{ post.id }}">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                </div>
+                                <div class="d-flex justify-content-between mt-1">
+                                    <small class="text-muted">
+                                        <i class="fas fa-comment"></i> {{ post.replies|length }} 条回复
+                                    </small>
+                                    {% if post.image_filename %}
+                                        <small><i class="fas fa-image text-info"></i></small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-feather-alt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">你还没有发布任何内容</p>
+                        <p class="small text-muted">你的发帖会显示在这里，只有你自己能看到这个列表</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="card shadow mt-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> 使用说明</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled small">
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 完全匿名，仅通过IP识别身份</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 可以上传图片分享</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 可以查看和回复自己的帖子</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 可以浏览公共树洞的帖子</li>
+                    <li class="mb-2"><i class="fas fa-check text-success"></i> 可以删除自己的帖子</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 字符计数
+    $(document).ready(function() {
+        $('#content').on('input', function() {
+            $('#charCount').text($(this).val().length);
+        });
+        
+        // 删除帖子功能
+        $('.delete-post-btn').click(function() {
+            const postId = $(this).data('post-id');
+            if (confirm('确定要删除这个帖子吗？删除后无法恢复。')) {
+                $.ajax({
+                    url: '/delete_my_post/' + postId,
+                    type: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            location.reload();
+                        } else {
+                            alert('删除失败: ' + response.message);
+                        }
+                    },
+                    error: function() {
+                        alert('删除失败，请重试');
+                    }
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

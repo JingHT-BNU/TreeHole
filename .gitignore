@@ -1,0 +1,6 @@
+database.db
+production.db
+static/*
+.idea/*
+.venv/*
+__pycache__/*
